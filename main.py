@@ -66,6 +66,7 @@ score = 0
 cubesPosList = [Vec3(-8,STAGE_HEIGHT+4,3), Vec3(-4,STAGE_HEIGHT+4,3), Vec3(0,STAGE_HEIGHT+4,3), Vec3(4,STAGE_HEIGHT+4,3), Vec3(8,STAGE_HEIGHT+4,3), Vec3(-8,STAGE_HEIGHT+4,-1), Vec3(-4,STAGE_HEIGHT+4,-1), Vec3(0,STAGE_HEIGHT+4,-1), Vec3(4,STAGE_HEIGHT+4,-1), Vec3(8,STAGE_HEIGHT+4,-1)]
 trainAccel = [10, 5, 4, 2.9, 2.32, 2, 1.7, 1.5, 1.3, 1.2, 1.1]
 cubeList = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+tempCubeList = []
 fingerTip = ['fing1_R_collider', 'fing2_R_collider', 'fing3_R_collider','fing4_R_collider', 'fing5_R_collider']
 finger_names = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky']
 bone_names = ['Metacarpal', 'Proximal', 'Intermediate', 'Distal']
@@ -122,11 +123,6 @@ class Main(ShowBase):
         self.wall_L = self.stage.find("**/wall_L")
         self.wall_L.node().setIntoCollideMask(BitMask32.bit(0))
         
-        self.cubeRoots = [[render.attachNewNode("cubeRoot_%i"  % (i+1)), Vec3(randint(-3, 3),randint(0, 7),randint(-3, 3))] for i in range(40)] # @UndefinedVariable
-        for i in range(len(self.cubeRoots)):
-            self.cubeRoots[i][0].detachNode()
-            self.cubeCreator(i) 
-        
         self.buttonList = [render.attachNewNode("button_%i"  % (i+1)) for i in range(3)] # @UndefinedVariable
         for i in range(len(self.buttonList)):
             self.buttonCreator(i) 
@@ -145,8 +141,6 @@ class Main(ShowBase):
     def spinCameraTask(self, task):
         self.camera.setPos(0,STAGE_HEIGHT+10,30)
         self.camera.setHpr(0,255,0)
-        #self.camera.setPos(0,STAGE_HEIGHT,30)
-        #self.camera.setHpr(0,270,0)
         self.camLens.setFov(65)
         return Task.cont
     def loadImageAsPlane(self, filepath, yresolution = 600):
@@ -222,9 +216,11 @@ class Main(ShowBase):
         buttonCollider = button.find("**/collider_button")
         buttonCollider.node().setFromCollideMask(BitMask32.bit(0))
         self.cTrav.addCollider(buttonCollider, self.cHandler)
-    def cubeCreator(self, cubeRoot):
+    def cubeCreator(self, i, cubeRoot):
+        global tempCubeList
         cube = loader.loadModel("models/cube") # @UndefinedVariable
-        cube.reparentTo(self.cubeRoots[cubeRoot][0]) # @UndefinedVariable
+        print(i)
+        cube.reparentTo(tempCubeList[i][0]) # @UndefinedVariable
         cubeMesh = cube.find("**/mesh_cube")
         myTexture = self.loader.loadTexture('cubes/tex_%i.jpg' %(cubeRoot))
         cubeMesh.setTexture(myTexture,1)
@@ -322,12 +318,13 @@ class Main(ShowBase):
         returnHome = False
         scoreCubes = []
         for i in range(len(renderedCube)): 
-            if len(answer)>i: self.cargos[i][0].remove_node()
-            self.cubeRoots[renderedCube[i]][0].detachNode()
-            self.cubeRoots[renderedCube[i]][1] = Vec3(randint(-3, 3),randint(0, 7),randint(-3, 3)) 
+            taskMgr.remove("physicsTask_%i" % (i)) # @UndefinedVariable
+            if len(answer)>i: self.cargos[i][0].removeNode()
+            tempCubeList[i][0].removeNode()
         self.image.removeNode()
         self.cargos.clear()
-        answer.clear()
+        renderedCube.clear()
+        tempCubeList.clear()
         answer.clear()
         self.train.setPosHpr(16, STAGE_HEIGHT+0.3, 12, 90, 180, 90)
         self.train.detachNode()
@@ -393,7 +390,7 @@ class Main(ShowBase):
             self.homeInitial()
             return task.done            
         else: return task.cont
-    def gameInitial(self, question, englishGmae):
+    def gameInitial(self, question, englishGame):
         global answer
         global gameStart
         global returnHome
@@ -411,12 +408,46 @@ class Main(ShowBase):
         self.trainV = Vec3(0,0,0)
         self.train.reparentTo(self.render)
         self.trainV = Vec3(-5,0,0)
-        if(englishGmae):
-            question = randint(0, question-1)
-            while question in question_list: question = randint(0, question-1)
-            tempQuestion = picture_names[question][:picture_names[question].index('.')]
-            question_list.append(question)
-            self.image = self.loadImageAsPlane("images/%s" % (picture_names[question]))
+        if(englishGame):
+            temp = randint(0, question-1)
+            while temp in question_list: temp = randint(0, question-1)
+            tempQuestion = picture_names[temp][:picture_names[temp].index('.')]
+            print(tempQuestion)
+            question_list.append(temp)
+            self.image = self.loadImageAsPlane("images/%s" % (picture_names[temp]))
+            self.image.reparentTo(self.render)
+            self.image.setScale(self.image.getScale()*1.2)
+            self.image.setPosHpr(0,STAGE_HEIGHT+3.5,-11, 90, 270, 90)
+            self.image.setTransparency(TransparencyAttrib.MAlpha)
+            self.image.setAlphaScale(1)
+            self.cargos = [[self.loader.loadModel("models/cargo"), -1] for i in range(len(tempQuestion))] # @UndefinedVariable
+            for i in range(len(self.cargos)):
+                self.cargos[i][0].reparentTo(self.render)
+                self.cargos[i][0].setScale(1,0.3,0.3)
+                self.cargos[i][0].setScale(1,0.32,0.32)
+                if i == 0:self.cargos[i][0].setPosHpr(self.train.getX()+2.5, STAGE_HEIGHT+0.3, 12, 90, 180, 90)
+                else: self.cargos[i][0].setPosHpr(self.cargos[i-1][0].getX()+2, STAGE_HEIGHT+0.3, 12, 90, 180, 90)
+    
+            taskMgr.remove("trainMovingTask") # @UndefinedVariable
+            self.trainEnter = taskMgr.add(self.trainMovingTask, "trainMovingTask", extraArgs = [True], appendTask=True ) # @UndefinedVariable
+            self.trainEnter.last = 0
+            
+            usedPos = random.sample(range(0, 10), 10)
+            for i in range(10):
+                if i<len(tempQuestion):
+                    temp = cubeList.index(tempQuestion[i])
+                    answer.append(temp)
+                    self.assignCube(temp, i, usedPos)
+                else: 
+                    temp = randint(10,35)
+                    while temp in answer: temp = randint(10,35)
+                    self.assignCube(temp, i, usedPos)
+        else:
+            temp = randint(0, question-1)
+            while temp in question_list: temp = randint(0, question-1)
+            tempQuestion = picture_names[temp][:picture_names[temp].index('.')]
+            question_list.append(temp)
+            self.image = self.loadImageAsPlane("images/%s" % (picture_names[temp]))
             self.image.reparentTo(self.render)
             self.image.setScale(self.image.getScale()*1.2)
             self.image.setPosHpr(0,STAGE_HEIGHT+3.5,-11, 90, 270, 90)
@@ -446,12 +477,17 @@ class Main(ShowBase):
                     self.assignCube(temp, i, usedPos)
     def assignCube(self, temp, i, usedPos):
         global renderedCube   
+        global tempCubeList
+        pos = len(tempCubeList)
         renderedCube.append(temp) 
-        self.cubeRoots[temp][0].reparentTo(self.render)
-        self.cubeRoots[temp][0].setPos(cubesPosList[usedPos[i]])
-        self.cubeRoots[temp][0].setHpr(0,0,0)
+        tempCubeList.append([render.attachNewNode("cubeRoot_%i"  % (temp)), Vec3(randint(-3, 3),7,randint(-3, 3))]) # @UndefinedVariable
+        self.cubeCreator(pos,temp) 
+            
+        tempCubeList[pos][0].reparentTo(self.render)
+        tempCubeList[pos][0].setPos(cubesPosList[usedPos[i]])
+        tempCubeList[pos][0].setHpr(0,0,0)
         taskMgr.remove("physicsTask_%i" % (i)) # @UndefinedVariable
-        self.physicsTaskLoop = taskMgr.add(self.physicsTask, "physicsTask_%i" % (i),extraArgs = [temp], appendTask=True) # @UndefinedVariable
+        self.physicsTaskLoop = taskMgr.add(self.physicsTask, "physicsTask_%i" % (i),extraArgs = [pos], appendTask=True) # @UndefinedVariable
         self.physicsTaskLoop.last = 0 
     
     def inGameTask(self, task):
@@ -463,7 +499,7 @@ class Main(ShowBase):
         mins = int(secs/60)
         self.timer.setText('{:02d}:{:02d}'.format(mins, secs%60))
             
-        if secs == -1:
+        if secs <= -1:
             #score= score+22
             gameInter= False
             self.errorMsg.setText("")
@@ -475,7 +511,7 @@ class Main(ShowBase):
         gameSuccess = True
         for i in range(len(answer)):
             if self.cargos[i][1] == -1: fail = False
-            if answer[i] != self.cargos[i][1]:
+            if answer[i] != renderedCube[self.cargos[i][1]]:
                 gameSuccess = False
         if gameSuccess: 
             self.errorMsg.setText("Success")
@@ -506,7 +542,9 @@ class Main(ShowBase):
             return True
         else: return False
     def trainMovingTask(self, arriving, task):
+        global tempCubeList
         global answer
+        global renderedCube
         global gameInter
         dt = task.time - task.last
         task.last = task.time
@@ -524,13 +562,14 @@ class Main(ShowBase):
             for i in range(len(answer)): 
                 newPos = self.cargos[i][0].getPos() + (self.trainV * dt)
                 self.cargos[i][0].setPos(newPos)
-                self.cubeRoots[answer[i]][0].setPos(newPos+Vec3(0,1.4,0))
+                tempCubeList[self.cargos[i][1]][0].setPos(newPos+Vec3(0,1.4,0))
             if self.cargos[len(answer)-1][0].getX()<-16:
                 for i in range(len(renderedCube)): 
                     if len(answer)>i: self.cargos[i][0].remove_node()
-                    self.cubeRoots[renderedCube[i]][0].detachNode()
-                    self.cubeRoots[renderedCube[i]][1] = Vec3(randint(-3, 3),randint(0, 7),randint(-3, 3)) 
+                    tempCubeList[i][0].removeNode()
                 self.image.removeNode()
+                tempCubeList.clear()
+                renderedCube.clear()
                 self.cargos.clear()
                 answer.clear()
                 gameInter = False
@@ -556,11 +595,11 @@ class Main(ShowBase):
         
         if cube == pinch_cube:
             if df < 0.1  and trigger_pinch_threshold is True and trigger_pinch is False: 
-                cubeP = self.cubeRoots[pinch_cube][0].getPos()
+                cubeP = tempCubeList[pinch_cube][0].getPos()
                 for f in self.cargos:
                     cargoP = f[0].getPos()
                     if cubeP[0]>cargoP[0]-1 and cubeP[0]<cargoP[0]+1 and cubeP[1] > cargoP[1] and cubeP[1] < cargoP[1]+4 and cubeP[2]>cargoP[2]-3 and cubeP[2]<cargoP[2]+3:
-                        self.cubeRoots[pinch_cube][0].setPos(cargoP+Vec3(0,1.4,0))
+                        tempCubeList[pinch_cube][0].setPos(cargoP+Vec3(0,1.4,0))
                         lastPinchFrame = 0
                         trigger_pinch_threshold = False
                         f[1] = pinch_cube
@@ -569,7 +608,7 @@ class Main(ShowBase):
                 if trigger_pinch_threshold:
                     currentPos = self.thowingTask(False)
                     if currentPos.length() >0:
-                        self.cubeRoots[cube][0].setPos(currentPos)
+                        tempCubeList[cube][0].setPos(currentPos)
                     else: 
                         lastPinchFrame = 0
                         trigger_pinch_threshold = False
@@ -578,7 +617,7 @@ class Main(ShowBase):
                 lastPinchFrame = 0
                 trigger_pinch_threshold = False
                 pinch_cube = -1
-                self.cubeRoots[cube][1] = self.thowingTask(True)
+                tempCubeList[cube][1] = self.thowingTask(True)
         for f in self.cargos:
             if f[1] == cube: 
                 isLoaded=True
@@ -600,11 +639,11 @@ class Main(ShowBase):
             elif name == "collider_cube": self.cubeCollideHandler(entry, cube)
             elif trigger_pinch_threshold is False: self.handCollideHandler(entry, cube)
         
-        self.cubeRoots[cube][1] += self.ballAccelV * dt * ACCEL
-        if self.cubeRoots[cube][1].lengthSquared() > MAX_SPEED_SQ:
-            self.cubeRoots[cube][1].normalize()
-            self.cubeRoots[cube][1] *= MAX_SPEED
-        self.cubeRoots[cube][0].setPos(self.cubeRoots[cube][0].getPos() + (self.cubeRoots[cube][1] * dt))
+        tempCubeList[cube][1] += self.ballAccelV * dt * ACCEL
+        if tempCubeList[cube][1].lengthSquared() > MAX_SPEED_SQ:
+            tempCubeList[cube][1].normalize()
+            tempCubeList[cube][1] *= MAX_SPEED
+        tempCubeList[cube][0].setPos(tempCubeList[cube][0].getPos() + (tempCubeList[cube][1] * dt))
         return Task.cont
     def thowingTask(self, thowing):
         global pinch_position
@@ -630,37 +669,37 @@ class Main(ShowBase):
         v2_u = v2 / numpy.linalg.norm(v2)
         return numpy.dot(v1_u, v2_u)
     def cubeCollideHandler(self, colEntry, cube):
-        if colEntry.getFromNodePath().getPos(self.cubeRoots[cube][0]).length() == 0:
+        if colEntry.getFromNodePath().getPos(tempCubeList[cube][0]).length() == 0:
             ballV=Vec3(0,0,0)
-            self.cubeRoots[cube][1] = ballV
+            tempCubeList[cube][1] = ballV
             disp = (colEntry.getSurfacePoint(render) - colEntry.getInteriorPoint(render)) # @UndefinedVariable
-            newPos = self.cubeRoots[cube][0].getPos() + disp
-            self.cubeRoots[cube][0].setPos(newPos)        
+            newPos = tempCubeList[cube][0].getPos() + disp
+            tempCubeList[cube][0].setPos(newPos)        
     def handCollideHandler(self, colEntry, cube):
-        if colEntry.getFromNodePath().getPos(self.cubeRoots[cube][0]).length() == 0:
+        if colEntry.getFromNodePath().getPos(tempCubeList[cube][0]).length() == 0:
             norm = colEntry.getSurfaceNormal(render) * -1               # The normal of the hand # @UndefinedVariable
-            curSpeed = self.cubeRoots[cube][1].length()                 # The current ball speed
-            inVec = self.cubeRoots[cube][1] / curSpeed                  # The direction of ball travel
+            curSpeed = tempCubeList[cube][1].length()                 # The current ball speed
+            inVec = tempCubeList[cube][1] / curSpeed                  # The direction of ball travel
             velAngle = self.dotProduct(norm, inVec)     
-            totalV = Vec3(self.cubeRoots[cube][1][0]+self.handV[0],self.cubeRoots[cube][1][1]+self.handV[1],self.cubeRoots[cube][1][2]+self.handV[2])
+            totalV = Vec3(tempCubeList[cube][1][0]+self.handV[0],tempCubeList[cube][1][1]+self.handV[1],tempCubeList[cube][1][2]+self.handV[2])
             ballV=Vec3(totalV[0]/10,totalV[1]/10,totalV[2]/10)
             if velAngle > 0:
-                self.cubeRoots[cube][1] = ballV
+                tempCubeList[cube][1] = ballV
                 disp = (colEntry.getSurfacePoint(render) - colEntry.getInteriorPoint(render)) # @UndefinedVariable
-                newPos = self.cubeRoots[cube][0].getPos() + disp
-                self.cubeRoots[cube][0].setPos(newPos)        
+                newPos = tempCubeList[cube][0].getPos() + disp
+                tempCubeList[cube][0].setPos(newPos)        
     def wallCollideHandler(self, colEntry, cube):
-        if colEntry.getFromNodePath().getPos(self.cubeRoots[cube][0]).length() == 0:
-            ballV=Vec3(-self.cubeRoots[cube][1][0],self.cubeRoots[cube][1][1],self.cubeRoots[cube][1][2])
+        if colEntry.getFromNodePath().getPos(tempCubeList[cube][0]).length() == 0:
+            ballV=Vec3(-tempCubeList[cube][1][0],tempCubeList[cube][1][1],tempCubeList[cube][1][2])
             if colEntry.getIntoNode().getName() == "wall_F" or colEntry.getIntoNode().getName() == "wall_B":
-                ballV=Vec3(self.cubeRoots[cube][1][0],self.cubeRoots[cube][1][1],-self.cubeRoots[cube][1][2])
+                ballV=Vec3(tempCubeList[cube][1][0],tempCubeList[cube][1][1],-tempCubeList[cube][1][2])
             elif colEntry.getIntoNode().getName() == "floor": 
-                ballV=Vec3(self.cubeRoots[cube][1][0]/2,-self.cubeRoots[cube][1][1]/2,self.cubeRoots[cube][1][2]/2)
+                ballV=Vec3(tempCubeList[cube][1][0]/2,-tempCubeList[cube][1][1]/2,tempCubeList[cube][1][2]/2)
                 if ballV[2]<0.01: ballV[2] =0
-            self.cubeRoots[cube][1] = ballV
+            tempCubeList[cube][1] = ballV
             disp = (colEntry.getSurfacePoint(render)- colEntry.getInteriorPoint(render)) # @UndefinedVariable
-            newPos = self.cubeRoots[cube][0].getPos() + disp
-            self.cubeRoots[cube][0].setPos(newPos)
+            newPos = tempCubeList[cube][0].getPos() + disp
+            tempCubeList[cube][0].setPos(newPos)
     def handUpdater(self, task):
         self.frame = self.leap.frame()
         global trigger_pinch
@@ -750,6 +789,7 @@ class Main(ShowBase):
             fingerMiddles[i].detachNode()
             fingerbases[i].detachNode()            
     def updatePinch(self, hand, tip, finger):
+        global tempCubeList
         global trigger_pinch
         global pinch_position
         global pinch_cube
@@ -762,15 +802,15 @@ class Main(ShowBase):
             
         if trigger_pinch is True:
             temp = 1.5
-            for f in renderedCube:
-                distance = pinch_position- self.cubeRoots[f][0].getPos()
+            for i in range(len(tempCubeList)):
+                distance = pinch_position - tempCubeList[i][0].getPos()
                 distance = Vector(distance[0], distance[1], distance[2])
                 if distance.magnitude<temp: 
                     temp = distance.magnitude
-                    self.unLoadedCube(f) 
-                    pinch_cube = f
+                    self.unLoadedCube(i) 
+                    pinch_cube = i
             if temp < 1.5: 
-                self.cubeRoots[pinch_cube][0].setPos(pinch_position)
+                tempCubeList[pinch_cube][0].setPos(pinch_position)
                 trigger_pinch = True
             else: trigger_pinch = False
     def unLoadedCube(self, cube):
